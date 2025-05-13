@@ -22,7 +22,7 @@ class _AppState extends State<App> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Poppins'),
-      initialRoute: NamedRoutes.splash,
+      initialRoute: NamedRoutes.main,
       routes: {
         NamedRoutes.home: (context) => HomeView(userName: "John doe"),
         NamedRoutes.login: (context) => Container(color: Colors.green),

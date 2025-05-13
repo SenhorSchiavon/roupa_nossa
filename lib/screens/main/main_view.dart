@@ -73,9 +73,9 @@ class _MainScreenState extends State<MainScreen> {
             ),
 
             BottomBarItem(
-              icon: const Icon(Icons.production_quantity_limits_outlined),
-              selectedIcon: const Icon(Icons.production_quantity_limits),
-              title: const Text('Cupons'),
+              icon: const Icon(Icons.chat_outlined),
+              selectedIcon: const Icon(Icons.chat),
+              title: const Text('Chats'),
               backgroundColor: Colors.blue,
               selectedColor: Colors.blue,
             ),

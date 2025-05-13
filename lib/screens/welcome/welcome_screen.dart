@@ -152,8 +152,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     return Opacity(
                       opacity: _fadeInAnimation.value,
                       child: ElevatedButton(
-                        onPressed:
-                            _controller.isCompleted ? widget.onContinue : null,
+                        onPressed: widget.onContinue,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF2196F3),

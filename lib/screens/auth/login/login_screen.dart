@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:roupa_nossa/commons/routes.dart';
+import 'package:roupa_nossa/screens/main/main_view.dart';
 import 'package:roupa_nossa/screens/welcome/welcome_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,42 +40,62 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> loginUsuario(BuildContext context) async {
-    final response = await http.post(
-      Uri.parse('http://10.64.40.53/backend_tcc/login.php'),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({
-        "email": _emailController.text.trim(),
-        "senha": _passwordController.text.trim(),
-      }),
-    );
-
-    final data = json.decode(response.body);
-
-    if (response.statusCode == 200 && data['success']) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('nome', data['user']['nome']);
-      await prefs.setString('email', data['user']['email']);
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => WelcomeScreen(
-                userName: data['user']['nome'],
-                isReturningUser: true,
-                onContinue:
-                    () => Navigator.pushReplacementNamed(
-                      context,
-                      NamedRoutes.main,
-                    ),
-              ),
-        ),
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.64.45.115:3000/api/auth/login'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "email": _emailController.text.trim(),
+          "senha": _passwordController.text.trim(),
+        }),
       );
-    } else {
+
+      Map<String, dynamic> data;
+      try {
+        data = json.decode(response.body);
+      } catch (e) {
+        print('Erro ao decodificar JSON: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro inesperado no servidor"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('nome', data['user']['nome']);
+        await prefs.setString('email', data['user']['email']);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text('Usuário logado com sucesso!'),
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MainScreen(userName: data['user']['nome']),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['error'] ?? 'Erro ao fazer login'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Erro na requisição: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(data['error'] ?? 'Erro ao fazer login'),
+        const SnackBar(
+          content: Text("Erro de conexão com o servidor"),
           backgroundColor: Colors.red,
         ),
       );

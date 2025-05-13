@@ -26,48 +26,60 @@ class _RegisterScreenState extends State<RegisterScreen>
   late Animation<double> _fadeAnimation;
 
   Future<void> registrarUsuario(BuildContext context) async {
-    final response = await http.post(
-      Uri.parse('http://192.168.56.1/backend_tcc/usuarios.php'),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({
-        "nome": _nameController.text.trim(),
-        "email": _emailController.text.trim(),
-        "telefone": _celularController.text.trim(),
-        "senha": _passwordController.text.trim(),
-      }),
-    );
-
-    print('RESPOSTA: ${response.body}'); // Adiciona isso aqui pra debugar
-
-    final data = json.decode(response.body);
-    if (response.statusCode == 201 && data['success']) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('nome', _nameController.text);
-      await prefs.setString('email', _emailController.text);
-      await prefs.setString('telefone', _celularController.text);
-      await prefs.setInt('id', int.parse(data['id'].toString()));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário registrado com sucesso!')),
+    try {
+      final response = await http.post(
+        // lembre-se de usar 10.0.2.2 no emulador Android
+        Uri.parse('http://10.64.45.115:3000/api/auth/register'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "nome": _nameController.text.trim(),
+          "email": _emailController.text.trim(),
+          "senha": _passwordController.text.trim(),
+        }),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => WelcomeScreen(
-                userName: _nameController.text,
-                isReturningUser: false,
-                onContinue: () {
-                  Navigator.pushReplacementNamed(context, NamedRoutes.main);
-                },
-              ),
+      print('RESPOSTA [register]: ${response.statusCode} → ${response.body}');
+      final data = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 201 && data['success'] == true) {
+        final user = data['user'] as Map<String, dynamic>;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setInt('id', user['id'] as int);
+        await prefs.setString('nome', user['nome'] as String);
+        await prefs.setString('email', user['email'] as String);
+
+        // navega para WelcomeScreen, capturando o context correto:
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (welcomeCtx) => WelcomeScreen(
+                  userName: user['nome'] as String,
+                  isReturningUser: false,
+                  onContinue: () {
+                    // usa welcomeCtx, e não o context acima, para navegar
+                    Navigator.pushReplacementNamed(
+                      welcomeCtx,
+                      NamedRoutes.main,
+                    );
+                  },
+                ),
+          ),
+        );
+      } else {
+        final error = data['error'] as String? ?? 'Erro ao cadastrar';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      print('Erro na requisição de registro: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erro de conexão com o servidor"),
+          backgroundColor: Colors.red,
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(data['error'] ?? 'Erro ao cadastrar')),
       );
     }
   }
