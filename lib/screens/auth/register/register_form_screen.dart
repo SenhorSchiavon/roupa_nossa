@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:roupa_nossa/commons/routes.dart';
 import 'package:roupa_nossa/screens/welcome/welcome_screen.dart';
 import 'package:http/http.dart' as http;
@@ -28,8 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   Future<void> registrarUsuario(BuildContext context) async {
     try {
       final response = await http.post(
-        // lembre-se de usar 10.0.2.2 no emulador Android
-        Uri.parse('http://10.64.45.115:3000/api/auth/register'),
+        Uri.parse('${dotenv.env['URL_BACKEND']}/api/auth/register'),
         headers: {"Content-Type": "application/json"},
         body: json.encode({
           "nome": _nameController.text.trim(),

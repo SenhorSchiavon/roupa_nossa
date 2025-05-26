@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:roupa_nossa/screens/chat/list_chat.dart';
 import 'package:roupa_nossa/screens/donations/create/donations_create.dart';
 import 'package:roupa_nossa/screens/donations/list/donations_list.dart';
 import 'package:roupa_nossa/screens/home/home_view.dart';
@@ -30,7 +31,7 @@ class _MainScreenState extends State<MainScreen> {
       },
     ),
     AllDonationsScreen(),
-    const Center(child: Text('Chats')),
+    ChatListScreen(),
     PerfilView(),
     DonationRegistrationScreen(),
   ];

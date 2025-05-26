@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
 
 class DonationRegistrationScreen extends StatefulWidget {
@@ -20,6 +23,7 @@ class _DonationRegistrationScreenState
   String _size = '';
   String _category = 'Camisetas';
   File? _imageFile;
+  bool _disponivel = true;
 
   final List<String> _categories = [
     'Camisetas',
@@ -40,23 +44,69 @@ class _DonationRegistrationScreenState
     }
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      // Here you would typically send the data to your backend
+      final uriRoupa = Uri.parse('${dotenv.env['URL_BACKEND']}/api/roupa');
+      final uriDoacao = Uri.parse('${dotenv.env['URL_BACKEND']}/api/doacao');
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Doação cadastrada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      try {
+        // 1. Envia a roupa
+        final responseRoupa = await http.post(
+          uriRoupa,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'nome': _title,
+            'categoria': _category,
+            'tamanho': _size,
+            'descricao': _description,
+            'imagemUrl':
+                'https://images.tcdn.com.br/img/img_prod/978582/camiseta_poliester_azul_royal_p_linha_sublima_brasil_2143_1_25dda3f2548c3bcba314654a02c7ced8.png',
+            'disponibilidade': true,
+          }),
+        );
 
-      // Navigate back after successful submission
-      Future.delayed(const Duration(seconds: 2), () {
-        Navigator.pop(context);
-      });
+        if (responseRoupa.statusCode == 201) {
+          final roupaData = json.decode(responseRoupa.body);
+          final roupaId = roupaData['id'];
+
+          // 2. Cadastra a doação
+          final responseDoacao = await http.post(
+            uriDoacao,
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'usuarioId': 1, // Substituir pelo ID do usuário logado
+              'roupaId': roupaId,
+              'status': 'pendente',
+            }),
+          );
+
+          if (responseDoacao.statusCode == 201) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Doação cadastrada com sucesso!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+
+            Future.delayed(const Duration(seconds: 2), () {
+              Navigator.pop(context);
+            });
+          } else {
+            throw Exception('Erro ao registrar doação');
+          }
+        } else {
+          throw Exception('Erro ao registrar roupa');
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -152,24 +202,26 @@ class _DonationRegistrationScreenState
                                 // Title field
                                 TextFormField(
                                   decoration: InputDecoration(
-                                    labelText: 'Título',
+                                    labelText: 'Nome da peça',
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    prefixIcon: const Icon(Icons.title),
+                                    prefixIcon: const Icon(Icons.label),
                                     filled: true,
                                     fillColor: Colors.grey[50],
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Por favor, informe um título';
+                                      return 'Por favor, informe o nome da peça';
                                     }
                                     return null;
                                   },
                                   onSaved: (value) {
-                                    _title = value!;
+                                    _title =
+                                        value!; // ou crie uma nova variável _name
                                   },
                                 ),
+
                                 const SizedBox(height: 16),
 
                                 // Category dropdown
@@ -222,7 +274,6 @@ class _DonationRegistrationScreenState
                                   },
                                 ),
                                 const SizedBox(height: 16),
-
                                 // Description field
                                 TextFormField(
                                   decoration: InputDecoration(
@@ -264,6 +315,7 @@ class _DonationRegistrationScreenState
                                       'CADASTRAR DOAÇÃO',
                                       style: TextStyle(
                                         fontSize: 16,
+                                        color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),

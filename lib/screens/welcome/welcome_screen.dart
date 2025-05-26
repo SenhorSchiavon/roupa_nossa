@@ -166,7 +166,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           elevation: 3,
                         ),
                         child: const Text(
-                          'Continuar',
+                          'Continuar', 
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

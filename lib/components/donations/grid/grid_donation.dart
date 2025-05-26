@@ -18,6 +18,7 @@ class DonationGridItem extends StatelessWidget {
         );
       },
       child: Container(
+        height: 230, // 👈 ALTURA FIXADA
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -30,10 +31,8 @@ class DonationGridItem extends StatelessWidget {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // 👈 isso evita overflow
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagem com Hero
             Hero(
               tag: 'donation-image-${donation['id']}',
               child: ClipRRect(
@@ -41,95 +40,91 @@ class DonationGridItem extends StatelessWidget {
                   top: Radius.circular(16),
                 ),
                 child: Image.network(
-                  donation['imageUrl'],
-                  height: 120,
+                  donation['imagemUrl'] ?? '',
+                  height: 100,
                   width: double.infinity,
                   fit: BoxFit.cover,
                   errorBuilder:
                       (context, error, stackTrace) => Container(
-                        height: 120,
+                        height: 100,
                         color: Colors.grey[200],
                         child: const Icon(Icons.broken_image, size: 40),
                       ),
                 ),
               ),
             ),
-
-            // Conteúdo
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Título
-                  Text(
-                    donation['title'],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      donation['nome'] ?? '',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Categoria + Tamanho
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2196F3).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            donation['category'],
-                            style: const TextStyle(
-                              color: Color(0xFF2196F3),
-                              fontSize: 10,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            overflow: TextOverflow.ellipsis,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2196F3).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              donation['categoria'] ?? '',
+                              style: const TextStyle(
+                                color: Color(0xFF2196F3),
+                                fontSize: 10,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            donation['size'],
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 10,
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
                             ),
-                            overflow: TextOverflow.ellipsis,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              donation['tamanho'] ?? '',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 10,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Text(
+                        donation['descricao'] ?? '',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Descrição
-                  Text(
-                    donation['description'],
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

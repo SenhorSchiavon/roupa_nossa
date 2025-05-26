@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:roupa_nossa/commons/routes.dart';
 import 'package:roupa_nossa/screens/main/main_view.dart';
 import 'package:roupa_nossa/screens/welcome/welcome_screen.dart';
@@ -42,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> loginUsuario(BuildContext context) async {
     try {
       final response = await http.post(
-        Uri.parse('http://10.64.45.115:3000/api/auth/login'),
+        Uri.parse('${dotenv.env['URL_BACKEND']}/api/auth/login'),
         headers: {"Content-Type": "application/json"},
         body: json.encode({
           "email": _emailController.text.trim(),

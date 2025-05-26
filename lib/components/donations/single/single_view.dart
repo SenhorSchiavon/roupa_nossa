@@ -9,9 +9,11 @@ class DonationDetailsScreen extends StatelessWidget {
     : super(key: key);
 
   Future<void> _openWhatsApp() async {
-    final phoneNumber = donation['phoneNumber'] ?? '5543998142217';
+    final usuario = donation['usuario'];
+    final roupa = donation['roupa'];
+    final phoneNumber = usuario['telefone'] ?? '5543998142217';
     final message =
-        'Olá! Vi sua doação "${donation['title']}" no app Roupa Nossa e tenho interesse!';
+        'Olá! Vi sua doação "${roupa['nome']}" no app Roupa Nossa e tenho interesse!';
 
     final whatsappUrl =
         'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}';
@@ -25,7 +27,9 @@ class DonationDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final donatedDate = DateTime.parse(donation['donatedAt']);
+    final roupa = donation['roupa'];
+    final usuario = donation['usuario'];
+    final donatedDate = DateTime.parse(donation['dataCadastro']);
     final formattedDate = DateFormat('dd/MM/yyyy').format(donatedDate);
 
     return Scaffold(
@@ -66,26 +70,25 @@ class DonationDetailsScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Image
+                            // Imagem
                             Hero(
                               tag: 'donation-image-${donation['id']}',
                               child: Image.network(
-                                donation['imageUrl'],
+                                roupa['imagemUrl'],
                                 height: 250,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
                               ),
                             ),
 
-                            // Content
+                            // Conteúdo
                             Padding(
                               padding: const EdgeInsets.all(20.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Title
                                   Text(
-                                    donation['title'],
+                                    roupa['nome'],
                                     style: const TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
@@ -93,7 +96,6 @@ class DonationDetailsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // Category and size badges
                                   Row(
                                     children: [
                                       Container(
@@ -110,7 +112,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                           ),
                                         ),
                                         child: Text(
-                                          donation['category'],
+                                          roupa['categoria'],
                                           style: const TextStyle(
                                             color: Color(0xFF2196F3),
                                             fontWeight: FontWeight.bold,
@@ -130,7 +132,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                           ),
                                         ),
                                         child: Text(
-                                          'Tamanho: ${donation['size']}',
+                                          'Tamanho: ${roupa['tamanho']}',
                                           style: TextStyle(
                                             color: Colors.grey[700],
                                             fontWeight: FontWeight.w500,
@@ -141,7 +143,6 @@ class DonationDetailsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Description section
                                   Text(
                                     'Descrição',
                                     style: TextStyle(
@@ -152,7 +153,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    donation['description'],
+                                    roupa['descricao'],
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: Colors.grey[600],
@@ -161,7 +162,6 @@ class DonationDetailsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 24),
 
-                                  // Donor information
                                   Container(
                                     padding: const EdgeInsets.all(15),
                                     decoration: BoxDecoration(
@@ -192,7 +192,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                                 0xFF2196F3,
                                               ).withOpacity(0.1),
                                               child: Text(
-                                                donation['donorName'][0]
+                                                usuario['nome'][0]
                                                     .toUpperCase(),
                                                 style: const TextStyle(
                                                   color: Color(0xFF2196F3),
@@ -206,7 +206,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  donation['donorName'],
+                                                  usuario['nome'],
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 16,
@@ -228,7 +228,6 @@ class DonationDetailsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 30),
 
-                                  // WhatsApp button
                                   SizedBox(
                                     width: double.infinity,
                                     height: 55,
@@ -237,7 +236,7 @@ class DonationDetailsScreen extends StatelessWidget {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: const Color(
                                           0xFF25D366,
-                                        ), // WhatsApp green
+                                        ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             16,
@@ -248,10 +247,10 @@ class DonationDetailsScreen extends StatelessWidget {
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          Image.network(
-                                            'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/WhatsApp.svg/512px-WhatsApp.svg.png',
-                                            height: 24,
-                                            width: 24,
+                                          Icon(
+                                            Icons.chat,
+                                            color: Colors.white,
+                                            size: 24,
                                           ),
                                           const SizedBox(width: 10),
                                           const Text(

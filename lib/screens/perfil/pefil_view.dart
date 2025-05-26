@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:roupa_nossa/screens/auth/login/login_screen.dart';
+import 'package:roupa_nossa/screens/donations/my_donations_screen.dart';
+import 'package:roupa_nossa/screens/profile/edit_profile_screen.dart';
+import 'package:roupa_nossa/screens/reward/reward_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PerfilView extends StatefulWidget {
@@ -12,6 +15,8 @@ class PerfilView extends StatefulWidget {
 class _PerfilViewState extends State<PerfilView> {
   String nome = '';
   String email = '';
+  int donationsCount = 0;
+  int rewardsCount = 0;
 
   @override
   void initState() {
@@ -24,6 +29,8 @@ class _PerfilViewState extends State<PerfilView> {
     setState(() {
       nome = prefs.getString('nome') ?? 'Nome não encontrado';
       email = prefs.getString('email') ?? 'Email não encontrado';
+      donationsCount = prefs.getInt('donationsCount') ?? 0;
+      rewardsCount = prefs.getInt('rewardsCount') ?? 0;
     });
   }
 
@@ -88,9 +95,9 @@ class _PerfilViewState extends State<PerfilView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem('0', 'Doações'),
-                    _buildStatItem('0', 'Recompensas'),
-                    _buildStatItem('0', 'Anos'),
+                    _buildStatItem('2', 'Doações'),
+                    _buildStatItem('2', 'Recompensas'),
+                    _buildStatItem('1', 'Retiradas'),
                   ],
                 ),
                 const SizedBox(height: 30),
@@ -99,28 +106,45 @@ class _PerfilViewState extends State<PerfilView> {
                   icon: Icons.card_giftcard,
                   title: 'Minhas Doações',
                   color: const Color(0xFF2196F3),
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyDonationsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 _buildMenuItem(
                   icon: Icons.emoji_events,
                   title: 'Minhas Recompensas',
                   color: const Color(0xFF4CAF50),
-                  onTap: () {},
-                ),
-                const SizedBox(height: 12),
-                _buildMenuItem(
-                  icon: Icons.settings,
-                  title: 'Configurações',
-                  color: const Color(0xFFFFC107),
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RewardsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 _buildMenuItem(
                   icon: Icons.edit,
                   title: 'Editar Perfil',
                   color: const Color(0xFF9C27B0),
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EditProfileScreen(),
+                      ),
+                    ).then((_) {
+                      // Refresh user data when returning from edit profile
+                      carregarDadosUsuario();
+                    });
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -142,7 +166,7 @@ class _PerfilViewState extends State<PerfilView> {
                     onPressed: () => logout(context),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
               ],
             ),
           ),
