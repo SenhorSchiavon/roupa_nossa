@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -11,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.roupa_nossa"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -35,4 +36,12 @@ android {
 
 flutter {
     source = "../.."
+}
+dependencies {
+  implementation(platform("com.google.firebase:firebase-bom:33.14.0"))
+
+
+  implementation("com.google.firebase:firebase-analytics")
+
+
 }

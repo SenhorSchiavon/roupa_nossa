@@ -8,19 +8,27 @@ import 'package:stylish_bottom_bar/stylish_bottom_bar.dart';
 
 class MainScreen extends StatefulWidget {
   final String userName;
-  const MainScreen({super.key, required this.userName});
+  final Function(String)? onCategorySelected;
+
+  const MainScreen({
+    super.key,
+    required this.userName,
+    this.onCategorySelected,
+  });
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
+  String? _initialFilter;
   int _selectedIndex = 0;
   List<Widget> get _pages => [
     HomeView(
       userName: widget.userName,
       onVerTodasPressed: () {
         setState(() {
+          _initialFilter = null;
           _selectedIndex = 1;
         });
       },
@@ -29,8 +37,15 @@ class _MainScreenState extends State<MainScreen> {
           _selectedIndex = 3;
         });
       },
+      onCategorySelected: (categoria) {
+        setState(() {
+          _initialFilter = categoria;
+          _selectedIndex = 1;
+        });
+      },
     ),
-    AllDonationsScreen(),
+
+    AllDonationsScreen(filter: _initialFilter),
     ChatListScreen(),
     PerfilView(),
     DonationRegistrationScreen(),
@@ -115,7 +130,7 @@ class _MainScreenState extends State<MainScreen> {
           );
         },
         backgroundColor: Colors.blue,
-        child: const Icon(Icons.add_shopping_cart, color: Colors.white),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
 
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,

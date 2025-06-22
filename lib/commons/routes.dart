@@ -12,4 +12,5 @@ class NamedRoutes {
   static const String registerFormScreen = '/registerFormScreen';
   static const String welcome = '/welcome';
   static const String listDonation = '/listDonation';
+  static const String chat = '/chat';
 }

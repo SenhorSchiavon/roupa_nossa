@@ -3,20 +3,30 @@ import 'package:roupa_nossa/components/donations/single/single_view.dart';
 
 class DonationGridItem extends StatelessWidget {
   final Map<String, dynamic> donation;
+  final VoidCallback? onTap;
 
-  const DonationGridItem({Key? key, required this.donation}) : super(key: key);
+  const DonationGridItem({Key? key, required this.donation, this.onTap})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DonationDetailsScreen(donation: donation),
-          ),
-        );
-      },
+      onTap:
+          onTap ??
+          () {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 500),
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: DonationDetailsScreen(donation: donation),
+                  );
+                },
+              ),
+            );
+          },
       child: Container(
         height: 230, // 👈 ALTURA FIXADA
         decoration: BoxDecoration(
@@ -40,7 +50,7 @@ class DonationGridItem extends StatelessWidget {
                   top: Radius.circular(16),
                 ),
                 child: Image.network(
-                  donation['imagemUrl'] ?? '',
+                  donation['roupa']['imagemUrl'] ?? '',
                   height: 100,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -60,7 +70,7 @@ class DonationGridItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      donation['nome'] ?? '',
+                      donation['roupa']['nome'] ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -82,7 +92,7 @@ class DonationGridItem extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              donation['categoria'] ?? '',
+                              donation['roupa']['categoria'] ?? '',
                               style: const TextStyle(
                                 color: Color(0xFF2196F3),
                                 fontSize: 10,
@@ -103,7 +113,7 @@ class DonationGridItem extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              donation['tamanho'] ?? '',
+                              donation['roupa']['tamanho'] ?? '',
                               style: TextStyle(
                                 color: Colors.grey[700],
                                 fontSize: 10,
@@ -117,7 +127,7 @@ class DonationGridItem extends StatelessWidget {
                     const SizedBox(height: 8),
                     Expanded(
                       child: Text(
-                        donation['descricao'] ?? '',
+                        donation['roupa']['descricao'] ?? '',
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

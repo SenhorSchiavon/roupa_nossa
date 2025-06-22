@@ -58,7 +58,7 @@ class _LatestDonationsState extends State<LatestDonations> {
       itemCount: donations.length,
       itemBuilder: (context, index) {
         final donation = donations[index];
-
+        print('Doação: $donation');
         return GestureDetector(
           onTap: () {
             Navigator.push(

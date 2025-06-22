@@ -76,6 +76,31 @@ class RewardsScreen extends StatelessWidget {
               const SizedBox(height: 16),
               _buildProgressIndicator(userDonationsCount),
               const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.info_outline, color: Colors.orange),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'As recompensas exibidas são fictícias e ainda estão em fase de testes. Não devem ser levadas em consideração como benefícios reais.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -210,6 +235,7 @@ class RewardsScreen extends StatelessWidget {
               child: Icon(reward['icon'], color: reward['color'], size: 32),
             ),
             const SizedBox(width: 16),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,6 +260,7 @@ class RewardsScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.all(8),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:roupa_nossa/commons/routes.dart';
@@ -54,6 +55,7 @@ class _LoginScreenState extends State<LoginScreen>
       Map<String, dynamic> data;
       try {
         data = json.decode(response.body);
+        print('DADOS RECEBIDOS DO BACKEND: $data');
       } catch (e) {
         print('Erro ao decodificar JSON: ${response.body}');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -66,10 +68,25 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       if (response.statusCode == 200 && data['success'] == true) {
+        final user = data['user'] as Map<String, dynamic>;
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
-        await prefs.setString('nome', data['user']['nome']);
-        await prefs.setString('email', data['user']['email']);
+        await prefs.setString('nome', user['nome']);
+        await prefs.setString('email', user['email']);
+
+        final userId = int.tryParse(user['id'].toString());
+        if (userId != null) {
+          await prefs.setInt('id', userId);
+          print('✅ ID salvo no SharedPreferences: $userId');
+        } else {
+          print('❌ Falha ao converter ID: ${user['id']}');
+        }
+
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -293,53 +310,6 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
 
                       const SizedBox(height: 16),
-
-                      // Divisor "ou"
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Divider(
-                              color: Colors.white.withOpacity(0.5),
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'ou',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              color: Colors.white.withOpacity(0.5),
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _socialButton(
-                            icon: 'assets/images/google_icon.png',
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 36),
-                          _socialButton(
-                            icon: 'assets/images/facebook_icon.png',
-                            onPressed: () {},
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
                       Center(
                         child: TextButton(
                           onPressed:

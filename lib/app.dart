@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:roupa_nossa/commons/routes.dart';
 import 'package:roupa_nossa/screens/auth/login/login_screen.dart';
 import 'package:roupa_nossa/screens/auth/register/register_form_screen.dart';
+import 'package:roupa_nossa/screens/chat/chatDetailScreen.dart';
 import 'package:roupa_nossa/screens/donations/list/donations_list.dart';
 import 'package:roupa_nossa/screens/home/home_view.dart';
 import 'package:roupa_nossa/screens/main/main_view.dart';
@@ -22,7 +23,7 @@ class _AppState extends State<App> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Poppins'),
-      initialRoute: NamedRoutes.main,
+      initialRoute: NamedRoutes.onboarding,
       routes: {
         NamedRoutes.home: (context) => HomeView(userName: "John doe"),
         NamedRoutes.login: (context) => Container(color: Colors.green),
@@ -43,6 +44,12 @@ class _AppState extends State<App> {
                 Navigator.pushReplacementNamed(context, NamedRoutes.home);
               },
             ),
+        NamedRoutes.chat: (context) {
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>;
+          return ChatDetailScreen(chat: args);
+        },
       },
     );
   }

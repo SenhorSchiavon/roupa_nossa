@@ -1,4 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -15,6 +22,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _cepController = TextEditingController();
+  final TextEditingController _cidadeController = TextEditingController();
+  final TextEditingController _estadoController = TextEditingController();
+  final TextEditingController _enderecoController = TextEditingController();
+  final TextEditingController _numeroController = TextEditingController();
+
+  final user = FirebaseAuth.instance.currentUser;
+  String? _fotoUrl;
+  String? _novaFotoTemp;
 
   bool _isLoading = true;
   bool _obscurePassword = true;
@@ -23,14 +39,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _fotoUrl = user?.photoURL;
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) return;
+
     setState(() {
       _nameController.text = prefs.getString('nome') ?? '';
       _emailController.text = prefs.getString('email') ?? '';
+      _cepController.text = prefs.getString('cep') ?? '';
+      _cidadeController.text = prefs.getString('cidade') ?? '';
+      _estadoController.text = prefs.getString('estado') ?? '';
+      _enderecoController.text = prefs.getString('endereco') ?? '';
+      _numeroController.text = prefs.getString('numero') ?? '';
       _isLoading = false;
     });
   }
@@ -48,10 +73,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('nome', _nameController.text);
         await prefs.setString('email', _emailController.text);
+        await prefs.setString('cep', _cepController.text);
+        await prefs.setString('cidade', _cidadeController.text);
+        await prefs.setString('estado', _estadoController.text);
+        await prefs.setString('endereco', _enderecoController.text);
+        await prefs.setString('numero', _numeroController.text);
 
-        // In a real app, you would update the password through an API
         if (_passwordController.text.isNotEmpty) {
           // Update password logic would go here
+        }
+        if (_novaFotoTemp != null) {
+          await user?.updatePhotoURL(_novaFotoTemp);
+          await FirebaseAuth.instance.currentUser?.reload();
+
+          final response = await HttpClient().putUrl(
+            Uri.parse(
+              '${dotenv.env['URL_BACKEND']}/api/usuario/firebase/${user?.uid}',
+            ),
+          );
+          response.headers.contentType = ContentType.json;
+          response.write(jsonEncode({'imageUrl': _novaFotoTemp}));
+          final resultado = await response.close();
+
+          if (resultado.statusCode != 200) {
+            throw Exception('Erro ao atualizar imagem no servidor');
+          }
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -70,9 +116,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         );
       } finally {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _selecionarNovaFoto() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      try {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_photos')
+            .child('${user.uid}.jpg');
+
+        await storageRef.putFile(File(pickedFile.path));
+        final downloadUrl = await storageRef.getDownloadURL();
+
+        if (!mounted) return;
+        setState(() {
+          _novaFotoTemp = downloadUrl;
+          _fotoUrl = downloadUrl; // já atualiza visualmente
+        });
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar imagem: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -190,7 +271,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                           },
                                         ),
                                         const SizedBox(height: 16),
-
+                                        TextFormField(
+                                          controller: _cepController,
+                                          decoration: _inputDecoration(
+                                            'CEP',
+                                            Icons.location_on,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        TextFormField(
+                                          controller: _cidadeController,
+                                          decoration: _inputDecoration(
+                                            'Cidade',
+                                            Icons.location_city,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        TextFormField(
+                                          controller: _estadoController,
+                                          decoration: _inputDecoration(
+                                            'Estado',
+                                            Icons.map,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        TextFormField(
+                                          controller: _enderecoController,
+                                          decoration: _inputDecoration(
+                                            'Endereço',
+                                            Icons.home,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        TextFormField(
+                                          controller: _numeroController,
+                                          decoration: _inputDecoration(
+                                            'Número',
+                                            Icons.confirmation_number,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
                                         // Password field
                                         TextFormField(
                                           controller: _passwordController,
@@ -299,6 +419,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.bold,
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ),
@@ -317,6 +438,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: Colors.grey[50],
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 
@@ -358,10 +489,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Center(
       child: Stack(
         children: [
-          const CircleAvatar(
-            radius: 60,
-            backgroundImage: NetworkImage(
-              'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=1000',
+          GestureDetector(
+            onTap: _selecionarNovaFoto,
+            child: CircleAvatar(
+              radius: 60,
+              backgroundImage:
+                  (_fotoUrl ?? '').isNotEmpty
+                      ? NetworkImage(_fotoUrl!)
+                      : const NetworkImage(
+                        'https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1331&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+                      ),
             ),
           ),
           Positioned(

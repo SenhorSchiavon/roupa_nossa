@@ -9,12 +9,14 @@ class HomeView extends StatefulWidget {
   final VoidCallback? onVerTodasPressed;
   final VoidCallback? onProfilePressed;
   final String userName;
+  final void Function(String)? onCategorySelected;
 
   const HomeView({
     super.key,
     this.onVerTodasPressed,
     this.onProfilePressed,
     required this.userName,
+    this.onCategorySelected,
   });
 
   @override
@@ -79,8 +81,6 @@ class _HomeViewState extends State<HomeView> {
           child: ListView(
             children: [
               _buildHeader(),
-              const SizedBox(height: 8),
-              _buildSearchAndNotifications(),
               const SizedBox(height: 16),
               BannerHome(
                 bannerController: _bannerController,
@@ -112,7 +112,15 @@ class _HomeViewState extends State<HomeView> {
                           onSeeAllPressed: () {},
                         ),
                         const SizedBox(height: 16),
-                        ButtonCategorias(categorias: _categorias),
+                        ButtonCategorias(
+                          categorias: _categorias,
+                          onCategorySelected: (categoria) {
+                            if (widget.onCategorySelected != null) {
+                              widget.onCategorySelected!(categoria);
+                            }
+                          },
+                        ),
+
                         const SizedBox(height: 32),
                         _buildSectionHeader(
                           'Últimas doações',
@@ -188,31 +196,6 @@ class _HomeViewState extends State<HomeView> {
                 radius: 20,
                 backgroundColor: Colors.white24,
                 child: Icon(Icons.person, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndNotifications() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          const Expanded(child: SearchInput()),
-          const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              onPressed: () {},
-              icon: const Icon(
-                Icons.notifications_none_rounded,
-                color: Colors.white,
               ),
             ),
           ),

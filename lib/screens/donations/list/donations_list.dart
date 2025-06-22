@@ -1,11 +1,16 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import 'package:roupa_nossa/components/donations/grid/grid_donation.dart';
+import 'package:roupa_nossa/components/donations/single/single_view.dart';
+import 'package:roupa_nossa/components/ui/search_input/search_input.dart';
 import 'package:roupa_nossa/screens/donations/create/donations_create.dart';
-import 'package:roupa_nossa/services/doacoes/get_doacoes.dart';
+import 'package:roupa_nossa/services/doacoes/doacaoService.dart';
 
 class AllDonationsScreen extends StatefulWidget {
-  const AllDonationsScreen({Key? key}) : super(key: key);
+  final String? filter;
+  const AllDonationsScreen({Key? key, this.filter}) : super(key: key);
 
   @override
   State<AllDonationsScreen> createState() => _AllDonationsScreenState();
@@ -14,7 +19,18 @@ class AllDonationsScreen extends StatefulWidget {
 class _AllDonationsScreenState extends State<AllDonationsScreen> {
   List<Map<String, dynamic>> _donations = [];
   bool _isLoading = true;
+  String _searchTerm = '';
   String _selectedCategory = 'Todos';
+  final DoacaoService _doacaoService = DoacaoService();
+  Future<List<Map<String, dynamic>>> fetchRoupas() async {
+    try {
+      return await _doacaoService.fetchRoupas();
+    } catch (e) {
+      print('Erro ao buscar roupas: $e');
+      return [];
+    }
+  }
+
   final List<String> _categories = [
     'Todos',
     'Camisetas',
@@ -24,26 +40,51 @@ class _AllDonationsScreenState extends State<AllDonationsScreen> {
     'Outros',
   ];
 
-  // Sample data - replace with your actual data source
   @override
-  void initState() {
-    super.initState();
-    fetchRoupas().then((data) {
-      setState(() {
-        _donations = data;
-        _isLoading = false;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_isLoading) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final initialFilter = args is String ? args : widget.filter;
+
+      fetchRoupas().then((data) {
+        setState(() {
+          _donations = data;
+          _isLoading = false;
+
+          if (initialFilter != null && _categories.contains(initialFilter)) {
+            _selectedCategory = initialFilter;
+          }
+        });
       });
-    });
+    }
   }
 
   List<Map<String, dynamic>> get filteredDonations {
-    if (_selectedCategory == 'Todos') {
-      return _donations;
-    } else {
-      return _donations
-          .where((donation) => donation['categoria'] == _selectedCategory)
-          .toList();
-    }
+    final filteredByCategory =
+        _selectedCategory == 'Todos'
+            ? _donations
+            : _donations.where((donation) {
+              final roupa = donation['roupa'];
+              if (roupa == null) return false;
+              return roupa['categoria']?.toString().toLowerCase() ==
+                  _selectedCategory.toLowerCase();
+            }).toList();
+
+    if (_searchTerm.isEmpty) return filteredByCategory;
+
+    final search = _searchTerm.trim().toLowerCase();
+
+    return filteredByCategory.where((donation) {
+      final roupa = donation['roupa'];
+      if (roupa == null) return false;
+
+      return roupa['nome']?.toString().toLowerCase().contains(search) == true ||
+          roupa['descricao']?.toString().toLowerCase().contains(search) ==
+              true ||
+          roupa['categoria']?.toString().toLowerCase().contains(search) == true;
+    }).toList();
   }
 
   @override
@@ -104,15 +145,33 @@ class _AllDonationsScreenState extends State<AllDonationsScreen> {
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
+      child: Column(
         children: [
-          const Text(
-            'Todas as Doações',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: const [
+              Text(
+                'Todas as Doações',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SearchInput(
+                  onChanged: (value) {
+                    setState(() {
+                      _searchTerm = value;
+                    });
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -195,7 +254,20 @@ class _AllDonationsScreenState extends State<AllDonationsScreen> {
         // Protege contra 'roupa' null
         print(filteredDonations[index]);
 
-        return DonationGridItem(donation: filteredDonations[index]);
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => DonationDetailsScreen(
+                      donation: filteredDonations[index], // ✅ Aqui está o fix
+                    ),
+              ),
+            );
+          },
+          child: DonationGridItem(donation: filteredDonations[index]),
+        );
       },
     );
   }

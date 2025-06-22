@@ -1,9 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:roupa_nossa/screens/auth/login/login_screen.dart';
 import 'package:roupa_nossa/screens/donations/my_donations_screen.dart';
 import 'package:roupa_nossa/screens/profile/edit_profile_screen.dart';
 import 'package:roupa_nossa/screens/reward/reward_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class PerfilView extends StatefulWidget {
   const PerfilView({super.key});
@@ -15,6 +15,7 @@ class PerfilView extends StatefulWidget {
 class _PerfilViewState extends State<PerfilView> {
   String nome = '';
   String email = '';
+  String? fotoUrl;
   int donationsCount = 0;
   int rewardsCount = 0;
 
@@ -25,18 +26,19 @@ class _PerfilViewState extends State<PerfilView> {
   }
 
   Future<void> carregarDadosUsuario() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      nome = prefs.getString('nome') ?? 'Nome não encontrado';
-      email = prefs.getString('email') ?? 'Email não encontrado';
-      donationsCount = prefs.getInt('donationsCount') ?? 0;
-      rewardsCount = prefs.getInt('rewardsCount') ?? 0;
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        nome = user.displayName ?? 'Nome não disponível';
+        email = user.email ?? 'Email não disponível';
+        fotoUrl = user.photoURL;
+        // você pode pegar contadores do Firestore ou API aqui também se quiser
+      });
+    }
   }
 
   Future<void> logout(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await FirebaseAuth.instance.signOut();
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -63,10 +65,14 @@ class _PerfilViewState extends State<PerfilView> {
             ),
             child: Column(
               children: [
-                const CircleAvatar(
-                  radius: 50,
-                  backgroundImage: NetworkImage(
-                    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=1000',
+                GestureDetector(
+                  onTap: () {}, // opcional: editar foto aqui também
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: NetworkImage(
+                      fotoUrl ??
+                          'https://images.unsplash.com/photo-1511367461989-f85a21fda167?q=80&w=1331&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -95,9 +101,9 @@ class _PerfilViewState extends State<PerfilView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem('2', 'Doações'),
-                    _buildStatItem('2', 'Recompensas'),
-                    _buildStatItem('1', 'Retiradas'),
+                    _buildStatItem('$donationsCount', 'Favoritas'),
+                    _buildStatItem('$rewardsCount', 'Doações'),
+                    _buildStatItem('0', 'Finalizadas'),
                   ],
                 ),
                 const SizedBox(height: 30),
@@ -140,8 +146,8 @@ class _PerfilViewState extends State<PerfilView> {
                       MaterialPageRoute(
                         builder: (context) => const EditProfileScreen(),
                       ),
-                    ).then((_) {
-                      // Refresh user data when returning from edit profile
+                    ).then((_) async {
+                      await FirebaseAuth.instance.currentUser?.reload();
                       carregarDadosUsuario();
                     });
                   },

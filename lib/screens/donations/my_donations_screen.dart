@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:roupa_nossa/components/donations/grid/grid_donation.dart';
+import 'package:roupa_nossa/components/donations/single/single_view.dart';
+import 'package:roupa_nossa/services/doacoes/doacaoService.dart';
+import 'package:roupa_nossa/services/interesses/interesseService.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyDonationsScreen extends StatefulWidget {
   const MyDonationsScreen({Key? key}) : super(key: key);
@@ -12,84 +16,58 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  final List<Map<String, dynamic>> _favoritedDonations = [
-    {
-      'id': '1',
-      'nome': 'Blusa de Lã Cinza',
-      'categoria': 'Blusas',
-      'tamanho': 'M',
-      'descricao': 'Blusa quente e confortável, ideal para o inverno.',
-      'imagemUrl':
-          'https://down-br.img.susercontent.com/file/6d3540e7267fd24696e58174c7b1e305',
-      'doador': 'Maria S.',
-      'donatedAt': '2023-05-10',
-      'phoneNumber': '5511999999999',
-    },
-    {
-      'id': '2',
-      'nome': 'Camisa Social Branca',
-      'categoria': 'Camisas',
-      'tamanho': 'G',
-      'descricao': 'Camisa de algodão branca, pouco usada.',
-      'imagemUrl':
-          'https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcTyzYBfltS7lct8oRsgcv4XyyZr1DZgqiB-LkRHFS_6v3ybA5T5f6w9kcWc940nozPsDVsegJ0auEtELvIeABL7o0qGGQIYrc776Y1dm8ripUhVAC1NLO3Uc-0pAMdQwP70iSN8BrLLbto&usqp=CAc',
-      'doador': 'Carlos A.',
-      'donatedAt': '2023-05-11',
-      'phoneNumber': '5511999999999',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _myDonations = [
-    {
-      'id': '3',
-      'nome': 'Vestido Longo Floral',
-      'categoria': 'Vestidos',
-      'tamanho': 'P',
-      'descricao': 'Vestido leve, ótimo para primavera e verão.',
-      'imagemUrl':
-          'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR-bKmoKD8WhG4hqLqQk4ithEwomwwujzyyxA&s',
-      'doador': 'Você',
-      'donatedAt': '2023-05-09',
-      'phoneNumber': '5511999999999',
-    },
-    {
-      'id': '4',
-      'nome': 'Short Jeans',
-      'categoria': 'Shorts',
-      'tamanho': '38',
-      'descricao': 'Short jeans feminino, em ótimo estado.',
-      'imagemUrl':
-          'https://images.tcdn.com.br/img/img_prod/663219/short_jeans_sal_e_pimenta_strass_ref_049_5355_1_db48f86d4297fc29b3fe273a0280f429.jpeg',
-      'doador': 'Você',
-      'donatedAt': '2023-05-08',
-      'phoneNumber': '5511999999999',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _receivedDonations = [
-    {
-      'id': '5',
-      'nome': 'Jaqueta de Couro',
-      'categoria': 'Jaquetas',
-      'tamanho': 'G',
-      'descricao': 'Jaqueta de couro sintético preta, seminova.',
-      'imagemUrl':
-          'https://vinncistore.com.br/cdn/shop/products/jaqueta-racer-de-couro-masculina-jaqueta-racer-de-couro-masculina-vinnci-store-marrom-p-650684_288x.jpg?v=1685586999',
-      'doador': 'Fernanda L.',
-      'donatedAt': '2023-05-07',
-      'phoneNumber': '5511999999999',
-    },
-  ];
+  List<Map<String, dynamic>> _favoritedDonations = [];
+  List<Map<String, dynamic>> _myDonations = [];
+  List<Map<String, dynamic>> _receivedDonations = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        setState(() {});
-      }
+      if (_tabController.indexIsChanging) setState(() {});
     });
+
+    _fetchDonations();
+  }
+
+  Future<void> _fetchDonations() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('id')?.toString() ?? '';
+
+      final data = await DoacaoService().fetchRoupas();
+      final recebidasRaw = await DoacaoService().fetchDoacoesFinalizadas();
+
+      final favoritos = await InteresseService().getFavoritosByUsuario(
+        int.parse(userId),
+      );
+
+      final minhas =
+          data
+              .where(
+                (d) =>
+                    d['usuario']['id'].toString() == userId &&
+                    d['foiDoada'] == false,
+              )
+              .toList();
+
+      final recebidas =
+          recebidasRaw
+              .where((d) => d['usuario']['id'].toString() == userId)
+              .toList();
+
+      setState(() {
+        _myDonations = minhas;
+        _receivedDonations = recebidas;
+        _favoritedDonations = favoritos;
+        _isLoading = false;
+      });
+    } catch (e, stack) {
+      print('❌ Erro ao buscar doações: $e');
+      print(stack);
+    }
   }
 
   @override
@@ -222,8 +200,8 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
                       i == 0
                           ? 'Favoritas'
                           : i == 1
-                          ? 'Doadas'
-                          : 'Recebidas',
+                          ? 'Ativas'
+                          : 'Finalizadas',
                       style: TextStyle(
                         color:
                             _tabController.index == i
@@ -252,34 +230,10 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
     String type,
   ) {
     if (donations.isEmpty) {
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: IndexedStack(
-                index: _tabController.index,
-                children: [
-                  _buildDonationsList(_favoritedDonations, 'favoritas'),
-                  _buildDonationsList(_myDonations, 'doadas'),
-                  _buildDonationsList(_receivedDonations, 'recebidas'),
-                ],
-              ),
-            ),
-          ),
+      return Center(
+        child: Text(
+          'Nenhuma doação $type encontrada.',
+          style: const TextStyle(fontSize: 16),
         ),
       );
     }
@@ -295,7 +249,21 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
       itemCount: donations.length,
       itemBuilder: (context, index) {
         final donation = donations[index];
-        return DonationGridItem(donation: donation);
+        return DonationGridItem(
+          donation: donation,
+          onTap: () async {
+            final updated = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DonationDetailsScreen(donation: donation),
+              ),
+            );
+
+            if (updated == true) {
+              await _fetchDonations();
+            }
+          },
+        );
       },
     );
   }

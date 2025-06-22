@@ -1,3 +1,9 @@
+// Este arquivo ainda está com os dados mockados. Para funcionar com Firestore:
+// - Vamos substituir a lista `chats` por uma `StreamBuilder`
+// - Pegar os dados da coleção `chats`
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:roupa_nossa/screens/chat/chatDetailScreen.dart';
@@ -7,50 +13,6 @@ class ChatListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock data for chat conversations
-    final List<Map<String, dynamic>> chats = [
-      {
-        'id': '1',
-        'name': 'Maria Silva',
-        'avatar': 'https://randomuser.me/api/portraits/women/44.jpg',
-        'lastMessage': 'Olá! Tenho interesse na sua doação de camiseta azul.',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 5)),
-        'unread': 2,
-      },
-      {
-        'id': '2',
-        'name': 'João Pedro',
-        'avatar': 'https://randomuser.me/api/portraits/men/32.jpg',
-        'lastMessage': 'Obrigado pela doação! Ficou perfeito.',
-        'timestamp': DateTime.now().subtract(const Duration(hours: 2)),
-        'unread': 0,
-      },
-      {
-        'id': '3',
-        'name': 'Ana Carolina',
-        'avatar': 'https://randomuser.me/api/portraits/women/68.jpg',
-        'lastMessage': 'Posso buscar amanhã à tarde?',
-        'timestamp': DateTime.now().subtract(const Duration(days: 1)),
-        'unread': 0,
-      },
-      {
-        'id': '4',
-        'name': 'Carlos Mendes',
-        'avatar': 'https://randomuser.me/api/portraits/men/55.jpg',
-        'lastMessage': 'Você ainda tem aquela calça jeans disponível?',
-        'timestamp': DateTime.now().subtract(const Duration(days: 2)),
-        'unread': 0,
-      },
-      {
-        'id': '5',
-        'name': 'Fernanda Lima',
-        'avatar': 'https://randomuser.me/api/portraits/women/33.jpg',
-        'lastMessage': 'Adorei o vestido! Muito obrigada pela doação.',
-        'timestamp': DateTime.now().subtract(const Duration(days: 3)),
-        'unread': 0,
-      },
-    ];
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -66,7 +28,7 @@ class ChatListScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              _buildHeader(context),
+              _buildHeader(),
               const SizedBox(height: 16),
               _buildSearchBar(),
               const SizedBox(height: 16),
@@ -74,7 +36,6 @@ class ChatListScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Container(
-                    width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -82,16 +43,12 @@ class ChatListScreen extends StatelessWidget {
                         BoxShadow(
                           color: Colors.black.withOpacity(0.05),
                           blurRadius: 10,
-                          spreadRadius: 0,
                         ),
                       ],
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
-                      child:
-                          chats.isEmpty
-                              ? _buildEmptyState()
-                              : _buildChatList(context, chats),
+                      child: _buildChatStream(context), // <-- aqui
                     ),
                   ),
                 ),
@@ -104,13 +61,62 @@ class ChatListScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+  Widget _buildChatStream(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Center(child: Text("Usuário não logado"));
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('chats')
+              .where('participants', arrayContains: user.uid)
+              .orderBy('lastTimestamp', descending: true)
+              .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final docs = snapshot.data!.docs;
+
+        if (docs.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(0),
+          itemCount: docs.length,
+          separatorBuilder:
+              (_, __) => Divider(height: 1, color: Colors.grey[200]),
+          itemBuilder: (context, index) {
+            final chat = docs[index];
+            final data = chat.data() as Map<String, dynamic>;
+
+            return _buildChatItem(context, {
+              'id': chat.id,
+              'participants': data['participants'],
+              'users': data['users'],
+              'lastMessage': data['lastMessage'] ?? '',
+              'timestamp':
+                  (data['lastTimestamp'] as Timestamp?)?.toDate() ??
+                  DateTime(2000),
+              'unread': 0,
+            });
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          const SizedBox(width: 16),
-          const Text(
+          SizedBox(width: 16),
+          Text(
             'Mensagens',
             style: TextStyle(
               color: Colors.white,
@@ -132,59 +138,33 @@ class ChatListScreen extends StatelessWidget {
           color: Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(50),
         ),
-        child: TextField(
-          style: const TextStyle(color: Colors.white),
+        child: const TextField(
+          style: TextStyle(color: Colors.white),
           decoration: InputDecoration(
             hintText: 'Pesquisar conversas...',
-            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-            prefixIcon: const Icon(Icons.search, color: Colors.white),
+            hintStyle: TextStyle(color: Colors.white70),
+            prefixIcon: Icon(Icons.search, color: Colors.white),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            contentPadding: EdgeInsets.symmetric(vertical: 12),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            'Nenhuma conversa encontrada',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Suas conversas aparecerão aqui',
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChatList(
-    BuildContext context,
-    List<Map<String, dynamic>> chats,
-  ) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(0),
-      itemCount: chats.length,
-      separatorBuilder:
-          (context, index) =>
-              Divider(color: Colors.grey[200], height: 1, indent: 80),
-      itemBuilder: (context, index) {
-        final chat = chats[index];
-        return _buildChatItem(context, chat);
-      },
-    );
-  }
-
   Widget _buildChatItem(BuildContext context, Map<String, dynamic> chat) {
+    final usersMap = chat['users'] as Map<String, dynamic>? ?? {};
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    String name = 'Contato';
+    String avatar = '';
+
+    usersMap.forEach((uid, data) {
+      if (uid != currentUid) {
+        name = data['nome'] ?? 'Contato';
+        avatar = data['avatar'] ?? '';
+      }
+    });
+
     final DateTime timestamp = chat['timestamp'] as DateTime;
     final String timeText = _getTimeText(timestamp);
     final bool hasUnread = (chat['unread'] as int) > 0;
@@ -193,21 +173,20 @@ class ChatListScreen extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ChatDetailScreen(chat: chat)),
+          MaterialPageRoute(
+            builder:
+                (context) => ChatDetailScreen(
+                  chat: {...chat, 'name': name, 'avatar': avatar},
+                ),
+          ),
         );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            // Avatar
-            CircleAvatar(
-              radius: 28,
-              backgroundImage: NetworkImage(chat['avatar']),
-            ),
+            CircleAvatar(radius: 28, backgroundImage: NetworkImage(avatar)),
             const SizedBox(width: 16),
-
-            // Message content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,7 +195,7 @@ class ChatListScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        chat['name'],
+                        name,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -279,25 +258,38 @@ class ChatListScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Nenhuma conversa encontrada',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Suas conversas aparecerão aqui',
+            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getTimeText(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
 
-    if (difference.inDays > 365) {
+    if (difference.inDays > 365)
       return DateFormat('dd/MM/yyyy').format(timestamp);
-    } else if (difference.inDays > 7) {
-      return DateFormat('dd/MM').format(timestamp);
-    } else if (difference.inDays > 0) {
-      if (difference.inDays == 1) {
-        return 'Ontem';
-      }
-      return '${difference.inDays} dias';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m';
-    } else {
-      return 'Agora';
-    }
+    if (difference.inDays > 7) return DateFormat('dd/MM').format(timestamp);
+    if (difference.inDays > 0)
+      return difference.inDays == 1 ? 'Ontem' : '${difference.inDays} dias';
+    if (difference.inHours > 0) return '${difference.inHours}h';
+    if (difference.inMinutes > 0) return '${difference.inMinutes}m';
+    return 'Agora';
   }
 }

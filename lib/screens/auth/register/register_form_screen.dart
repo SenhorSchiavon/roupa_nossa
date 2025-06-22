@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:roupa_nossa/commons/routes.dart';
 import 'package:roupa_nossa/screens/welcome/welcome_screen.dart';
 import 'package:http/http.dart' as http;
+import 'package:roupa_nossa/services/cep/cepService.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +21,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _celularController = TextEditingController();
+  final TextEditingController _enderecoController = TextEditingController();
+  final TextEditingController _cidadeController = TextEditingController();
+  final TextEditingController _estadoController = TextEditingController();
+  final TextEditingController _cepController = TextEditingController();
+  final TextEditingController _numeroController = TextEditingController();
 
   String? _sexoSelecionado;
 
@@ -35,11 +42,19 @@ class _RegisterScreenState extends State<RegisterScreen>
           "nome": _nameController.text.trim(),
           "email": _emailController.text.trim(),
           "senha": _passwordController.text.trim(),
+          "cep": _cepController.text.trim(),
+          "endereco": _enderecoController.text.trim(),
+          "numero": _numeroController.text.trim(),
+          "cidade": _cidadeController.text.trim(),
+          "estado": _estadoController.text.trim(),
         }),
       );
 
       print('RESPOSTA [register]: ${response.statusCode} → ${response.body}');
-      final data = json.decode(response.body) as Map<String, dynamic>;
+      final data = json.decode(response.body);
+      print('DATA: $data (${data.runtimeType})');
+      print('✅ Status: ${response.statusCode}');
+      print('✅ Success: ${data['success']}');
 
       if (response.statusCode == 201 && data['success'] == true) {
         final user = data['user'] as Map<String, dynamic>;
@@ -49,7 +64,6 @@ class _RegisterScreenState extends State<RegisterScreen>
         await prefs.setString('nome', user['nome'] as String);
         await prefs.setString('email', user['email'] as String);
 
-        // navega para WelcomeScreen, capturando o context correto:
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -58,7 +72,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                   userName: user['nome'] as String,
                   isReturningUser: false,
                   onContinue: () {
-                    // usa welcomeCtx, e não o context acima, para navegar
                     Navigator.pushReplacementNamed(
                       welcomeCtx,
                       NamedRoutes.main,
@@ -72,16 +85,29 @@ class _RegisterScreenState extends State<RegisterScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error), backgroundColor: Colors.red),
         );
+        throw Exception(data['error'] ?? 'Erro ao registrar no servidor');
       }
+    } on FirebaseAuthException catch (e) {
+      String errorMsg;
+      if (e.code == 'email-already-in-use') {
+        errorMsg = 'E-mail já está em uso.';
+      } else if (e.code == 'weak-password') {
+        errorMsg = 'Senha muito fraca.';
+      } else {
+        errorMsg = 'Erro no Firebase Auth: ${e.message}';
+      }
+
+      showError(errorMsg);
     } catch (e) {
       print('Erro na requisição de registro: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Erro de conexão com o servidor"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      showError('Erro ao registrar: ${e.toString()}');
     }
+  }
+
+  void showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   @override
@@ -105,6 +131,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     _passwordController.dispose();
     _nameController.dispose();
     _animationController.dispose();
+    _numeroController.dispose();
+    _celularController.dispose();
+    _enderecoController.dispose();
+    _cidadeController.dispose();
+    _estadoController.dispose();
+    _cepController.dispose();
+
     super.dispose();
   }
 
@@ -234,7 +267,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               const SizedBox(height: 16),
                               TextField(
                                 controller: _celularController,
-                                keyboardType: TextInputType.phone,
+                                keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
                                   labelText: 'Número do Celular',
                                   prefixIcon: const Icon(
@@ -279,6 +312,110 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 ),
                               ),
                               const SizedBox(height: 16),
+                              TextField(
+                                controller: _cepController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'CEP',
+                                  prefixIcon: Icon(Icons.location_on),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onChanged: (value) async {
+                                  final cep = value.replaceAll(
+                                    RegExp(r'[^0-9]'),
+                                    '',
+                                  );
+                                  if (cep.length == 8) {
+                                    final endereco = await buscarCep(cep);
+
+                                    if (endereco != null) {
+                                      setState(() {
+                                        _enderecoController.text =
+                                            '${endereco['logradouro']}, ${endereco['bairro']}';
+                                        _cidadeController.text =
+                                            endereco['localidade'] ?? '';
+                                        _estadoController.text =
+                                            endereco['uf'] ?? '';
+                                      });
+                                    } else {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('CEP não encontrado'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _enderecoController,
+                                decoration: InputDecoration(
+                                  labelText: 'Endereço',
+                                  prefixIcon: const Icon(Icons.home),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _numeroController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: 'Número',
+                                  prefixIcon: Icon(Icons.home),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _cidadeController,
+                                decoration: InputDecoration(
+                                  labelText: 'Cidade',
+                                  prefixIcon: const Icon(Icons.location_city),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _estadoController,
+                                decoration: InputDecoration(
+                                  labelText: 'Estado',
+                                  prefixIcon: const Icon(Icons.map),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
                               Container(
                                 width: double.infinity,
                                 child: ElevatedButton(
@@ -295,6 +432,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                     ),
                                     elevation: 2,
                                   ),
+
                                   child: Text(
                                     'CADASTRAR',
                                     style: const TextStyle(

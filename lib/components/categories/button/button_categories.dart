@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class ButtonCategorias extends StatelessWidget {
-  const ButtonCategorias({
-    Key? key,
+  final void Function(String)? onCategorySelected;
+  ButtonCategorias({
+    super.key,
     required List<Map<String, dynamic>> categorias,
-  }) : _categorias = categorias,
-       super(key: key);
+    this.onCategorySelected,
+  }) : _categorias = categorias;
 
   final List<Map<String, dynamic>> _categorias;
 
@@ -38,7 +39,8 @@ class ButtonCategorias extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
-                  onTap: () {},
+                  onTap: () => onCategorySelected?.call(categoria['name']),
+
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

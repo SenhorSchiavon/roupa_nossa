@@ -1,10 +1,18 @@
+import 'dart:convert';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
+import 'package:roupa_nossa/services/map/mapService.dart';
+import 'package:roupa_nossa/components/ui/location_message_bubble.dart';
+import 'package:http/http.dart' as http;
 
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chat;
 
-  const ChatDetailScreen({Key? key, required this.chat}) : super(key: key);
+  const ChatDetailScreen({super.key, required this.chat});
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -14,67 +22,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Mock messages data
-  late List<Map<String, dynamic>> _messages;
+  void _sendMessage() async {
+    if (_messageController.text.trim().isEmpty) return;
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with mock messages
-    _messages = [
-      {
-        'id': '1',
-        'text': 'Olá! Tenho interesse na sua doação de camiseta azul.',
-        'timestamp': DateTime.now().subtract(const Duration(days: 1, hours: 2)),
-        'isMe': false,
-      },
-      {
-        'id': '2',
-        'text': 'Oi! Sim, ela ainda está disponível.',
-        'timestamp': DateTime.now().subtract(
-          const Duration(days: 1, hours: 1, minutes: 45),
-        ),
-        'isMe': true,
-      },
-      {
-        'id': '3',
-        'text': 'Que ótimo! Quando poderia buscar?',
-        'timestamp': DateTime.now().subtract(
-          const Duration(days: 1, hours: 1, minutes: 30),
-        ),
-        'isMe': false,
-      },
-      {
-        'id': '4',
-        'text':
-            'Estou disponível amanhã à tarde, por volta das 15h. Funciona para você?',
-        'timestamp': DateTime.now().subtract(const Duration(days: 1, hours: 1)),
-        'isMe': true,
-      },
-      {
-        'id': '5',
-        'text': 'Perfeito! Estarei lá às 15h então.',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 30)),
-        'isMe': false,
-      },
-      {
-        'id': '6',
-        'text': 'Ótimo! Vou separar a camiseta para você.',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 25)),
-        'isMe': true,
-      },
-      {
-        'id': '7',
-        'text': 'Obrigado! Até amanhã.',
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 5)),
-        'isMe': false,
-      },
-    ];
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final chatId = widget.chat['id'];
+    final mensagemTexto = _messageController.text.trim();
 
-    // Scroll to bottom after rendering
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
+    final messageData = {
+      'text': mensagemTexto,
+      'senderId': user.uid,
+      'senderName': user.displayName ?? 'Usuário',
+      'timestamp': DateTime.now(),
+    };
+
+    final messagesRef = FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages');
+
+    await messagesRef.add(messageData);
+
+    // atualiza resumo
+    await FirebaseFirestore.instance.collection('chats').doc(chatId).update({
+      'lastMessage': mensagemTexto,
+      'lastTimestamp': FieldValue.serverTimestamp(),
     });
+
+    _messageController.clear();
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -85,25 +62,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         curve: Curves.easeOut,
       );
     }
-  }
-
-  void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) return;
-
-    setState(() {
-      _messages.add({
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'text': _messageController.text.trim(),
-        'timestamp': DateTime.now(),
-        'isMe': true,
-      });
-      _messageController.clear();
-    });
-
-    // Scroll to the bottom after sending a message
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
   }
 
   @override
@@ -162,6 +120,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final participants = List<String>.from(widget.chat['participants'] ?? []);
+    final rawUsers = widget.chat['users'] as Map<dynamic, dynamic>? ?? {};
+    final users = rawUsers.map(
+      (key, value) => MapEntry(key.toString(), value as Map<String, dynamic>),
+    );
+
+    final otherUid = participants.firstWhere(
+      (uid) => uid != currentUid,
+      orElse: () => '',
+    );
+
+    final userData = users[otherUid];
+
+    final otherName = userData?['nome'] ?? 'Contato';
+    final avatarUrl = userData?['avatar'] ?? '';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
@@ -184,7 +159,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           const SizedBox(width: 12),
           CircleAvatar(
             radius: 20,
-            backgroundImage: NetworkImage(widget.chat['avatar']),
+            backgroundImage:
+                avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+            backgroundColor: Colors.white,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -192,7 +169,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.chat['name'],
+                  otherName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -211,9 +188,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () {
-              // Show options menu
-            },
+            onPressed: () {},
           ),
         ],
       ),
@@ -221,70 +196,67 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildMessageList() {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      itemCount: _messages.length,
-      itemBuilder: (context, index) {
-        final message = _messages[index];
-        final bool isMe = message['isMe'] as bool;
-        final DateTime timestamp = message['timestamp'] as DateTime;
+    final String chatId = widget.chat['id'];
 
-        // Show date header if it's the first message or if the date changed
-        bool showDateHeader = false;
-        if (index == 0) {
-          showDateHeader = true;
-        } else {
-          final DateTime previousTimestamp =
-              _messages[index - 1]['timestamp'] as DateTime;
-          if (!_isSameDay(previousTimestamp, timestamp)) {
-            showDateHeader = true;
-          }
+    return StreamBuilder<QuerySnapshot>(
+      stream:
+          FirebaseFirestore.instance
+              .collection('chats')
+              .doc(chatId)
+              .collection('messages')
+              .orderBy('timestamp')
+              .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        return Column(
-          children: [
-            if (showDateHeader) _buildDateHeader(timestamp),
-            _buildMessageBubble(message),
-          ],
+        final docs = snapshot.data!.docs;
+
+        return ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final isMe =
+                data['senderId'] == FirebaseAuth.instance.currentUser!.uid;
+            final timestamp = (data['timestamp'] as Timestamp).toDate();
+
+            final message = {
+              'text': data['text'],
+              'timestamp': timestamp,
+              'isMe': isMe,
+              'type': data['type'], // <- OK até aqui
+              // FALTOU ISSO:
+              'locationName': data['locationName'],
+            };
+
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _scrollToBottom(),
+            );
+
+            return _buildMessageBubble(message);
+          },
         );
       },
-    );
-  }
-
-  Widget _buildDateHeader(DateTime timestamp) {
-    String dateText;
-    final now = DateTime.now();
-
-    if (_isSameDay(timestamp, now)) {
-      dateText = 'Hoje';
-    } else if (_isSameDay(timestamp, now.subtract(const Duration(days: 1)))) {
-      dateText = 'Ontem';
-    } else {
-      dateText = DateFormat('dd/MM/yyyy').format(timestamp);
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 16),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            dateText,
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message) {
     final bool isMe = message['isMe'] as bool;
     final DateTime timestamp = message['timestamp'] as DateTime;
+    final String messageType = message['type'] ?? 'text';
+
+    if (messageType == 'location') {
+      return LocationMessageBubble(
+        isMe: isMe,
+        timestamp: timestamp,
+        locationName: message['locationName'] ?? 'Localização compartilhada',
+      );
+    }
+
+    // Mensagem de texto normal (código existente)
     final timeString = DateFormat('HH:mm').format(timestamp);
 
     return Align(
@@ -348,9 +320,49 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.attach_file, color: Color(0xFF2196F3)),
-              onPressed: () {
-                // Handle attachment
+              icon: const Icon(Icons.location_on, color: Color(0xFF2196F3)),
+              onPressed: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) return;
+
+                final chatId = widget.chat['id'];
+
+                final response = await http.get(
+                  Uri.parse(
+                    '${dotenv.env['URL_BACKEND']}/api/usuario/firebase/${user.uid}',
+                  ),
+                );
+
+                if (response.statusCode == 200) {
+                  final data = jsonDecode(response.body);
+                  final endereco =
+                      '${data['endereco']} ${data['numero']}, ${data['cidade']} - ${data['estado']}, ${data['cep']}';
+                  print('Endereço do usuário: $endereco');
+                  await FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(chatId)
+                      .collection('messages')
+                      .add({
+                        'text': '📍 Meu endereço: $endereco',
+                        'senderId': user.uid,
+                        'senderName': user.displayName ?? 'Usuário',
+                        'timestamp': DateTime.now(),
+                        'type': 'location',
+                        'locationName': endereco,
+                      });
+
+                  await FirebaseFirestore.instance
+                      .collection('chats')
+                      .doc(chatId)
+                      .update({
+                        'lastMessage': '📍 Endereço enviado',
+                        'lastTimestamp': FieldValue.serverTimestamp(),
+                      });
+
+                  _scrollToBottom();
+                } else {
+                  print('Erro ao buscar endereço do usuário: ${response.body}');
+                }
               },
             ),
             Expanded(

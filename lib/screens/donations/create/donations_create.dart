@@ -1,9 +1,12 @@
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DonationRegistrationScreen extends StatefulWidget {
   const DonationRegistrationScreen({Key? key}) : super(key: key);
@@ -34,14 +37,46 @@ class _DonationRegistrationScreenState
   ];
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-    }
+    showModalBottomSheet(
+      context: this.context,
+      builder:
+          (context) => SafeArea(
+            child: Wrap(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.camera_alt),
+                  title: const Text('Tirar foto'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    final pickedFile = await ImagePicker().pickImage(
+                      source: ImageSource.camera,
+                    );
+                    if (pickedFile != null) {
+                      setState(() {
+                        _imageFile = File(pickedFile.path);
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo),
+                  title: const Text('Selecionar da galeria'),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    final pickedFile = await ImagePicker().pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (pickedFile != null) {
+                      setState(() {
+                        _imageFile = File(pickedFile.path);
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+    );
   }
 
   Future<void> _submitForm() async {
@@ -52,6 +87,39 @@ class _DonationRegistrationScreenState
       final uriDoacao = Uri.parse('${dotenv.env['URL_BACKEND']}/api/doacao');
 
       try {
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getInt('id');
+
+        if (userId == null) {
+          throw Exception('Usuário não autenticado');
+        }
+
+        String imageUrl = '';
+
+        if (_imageFile != null) {
+          final fileName = basename(_imageFile!.path);
+          final storageRef = FirebaseStorage.instance.ref().child(
+            'doacoes/$fileName',
+          );
+
+          final uploadTask = await storageRef.putFile(_imageFile!);
+          imageUrl = await uploadTask.ref.getDownloadURL();
+          print('URL gerada: $imageUrl');
+        } else {
+          imageUrl =
+              'https://images.tcdn.com.br/img/img_prod/978582/camiseta_poliester_azul_royal_p_linha_sublima_brasil_2143_1_25dda3f2548c3bcba314654a02c7ced8.png';
+        }
+        print(
+          json.encode({
+            'nome': _title,
+            'categoria': _category,
+            'tamanho': _size,
+            'descricao': _description,
+            'imagemUrl': imageUrl,
+            'disponibilidade': true,
+          }),
+        );
+
         // 1. Envia a roupa
         final responseRoupa = await http.post(
           uriRoupa,
@@ -61,8 +129,7 @@ class _DonationRegistrationScreenState
             'categoria': _category,
             'tamanho': _size,
             'descricao': _description,
-            'imagemUrl':
-                'https://images.tcdn.com.br/img/img_prod/978582/camiseta_poliester_azul_royal_p_linha_sublima_brasil_2143_1_25dda3f2548c3bcba314654a02c7ced8.png',
+            'imagemUrl': imageUrl,
             'disponibilidade': true,
           }),
         );
@@ -76,31 +143,34 @@ class _DonationRegistrationScreenState
             uriDoacao,
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
-              'usuarioId': 1, // Substituir pelo ID do usuário logado
+              'usuarioId': userId,
               'roupaId': roupaId,
               'status': 'pendente',
             }),
           );
 
           if (responseDoacao.statusCode == 201) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(this.context).showSnackBar(
               const SnackBar(
                 content: Text('Doação cadastrada com sucesso!'),
                 backgroundColor: Colors.green,
               ),
             );
-
             Future.delayed(const Duration(seconds: 2), () {
-              Navigator.pop(context);
+              Navigator.pop(this.context);
             });
           } else {
+            print('Erro roupa 1: ${responseRoupa.body}');
+
             throw Exception('Erro ao registrar doação');
           }
         } else {
+          print('Erro roupa 2: ${responseRoupa.body}');
+
           throw Exception('Erro ao registrar roupa');
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(this.context).showSnackBar(
           SnackBar(
             content: Text('Erro: ${e.toString()}'),
             backgroundColor: Colors.red,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class SearchInput extends StatefulWidget {
-  const SearchInput({Key? key}) : super(key: key);
+  final void Function(String)? onChanged;
+
+  const SearchInput({Key? key, this.onChanged}) : super(key: key);
 
   @override
   State<SearchInput> createState() => _SearchInputState();
@@ -18,6 +20,7 @@ class _SearchInputState extends State<SearchInput> {
       ),
       child: TextField(
         style: const TextStyle(color: Colors.white),
+        onChanged: widget.onChanged, // 🔥 aqui é o segredo
         decoration: InputDecoration(
           hintText: 'Buscar doações...',
           hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
